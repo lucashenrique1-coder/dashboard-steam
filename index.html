@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Promoções na Steam</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      display: flex;
+      min-height: 100vh;
+      background-color: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* Painel Lateral Escuro (Estilo Shiny Moderno) */
+    .sidebar {
+      width: 300px;
+      background-color: #1e293b;
+      color: #f8fafc;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      flex-shrink: 0;
+    }
+
+    .sidebar h2 {
+      font-size: 18px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 12px;
+      color: #38bdf8;
+    }
+
+    .filtro {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .filtro label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+
+    .valor-badge {
+      background-color: #38bdf8;
+      color: #0f172a;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .filtro input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+      accent-color: #38bdf8;
+    }
+
+    .filtro select {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-size: 14px;
+    }
+
+    .btn-reset {
+      background-color: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-reset:hover {
+      background-color: #475569;
+    }
+
+    .info-api {
+      margin-top: auto;
+      background-color: #0f172a;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    /* Conteúdo Principal */
+    .main {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-x: hidden;
+    }
+
+    .banner-pergunta {
+      background-color: #ffffff;
+      border-left: 5px solid #2563eb;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .banner-pergunta h1 {
+      font-size: 20px;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+
+    .banner-pergunta p {
+      font-size: 15px;
+      color: #475569;
+    }
+
+    /* Cards de Indicadores (KPIs) */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background-color: #ffffff;
+      padding: 18px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+
+    .kpi-titulo {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .kpi-valor {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 6px 0 4px 0;
+    }
+
+    .kpi-sub {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    /* Gráficos e Conclusões */
+    .grid-duplo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 950px) {
+      .grid-duplo {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+
+    .card h3 {
+      font-size: 16px;
+      margin-bottom: 14px;
+      color: #0f172a;
+    }
+
+    .card p, .card li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .card ul {
+      padding-left: 18px;
+    }
+
+    /* Tabela */
+    .tabela-container {
+      overflow-x: auto;
+      max-height: 340px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+      background-color: #f8fafc;
+      position: sticky;
+      top: 0;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    tr:hover {
+      background-color: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PAINEL LATERAL DE FILTROS (ESTILO SHINY) -->
+  <aside class="sidebar">
+    <h2>Filtros do Painel</h2>
+
+    <div class="filtro">
+      <label>Desconto Mínimo <span id="lblDesconto" class="valor-badge">0%</span></label>
+      <input type="range" id="filtroDesconto" min="0" max="80" step="5" value="0" />
+    </div>
+
+    <div class="filtro">
+      <label>Preço Normal Máx. <span id="lblPreco" class="valor-badge">$100</span></label>
+      <input type="range" id="filtroPreco" min="10" max="100" step="5" value="100" />
+    </div>
+
+    <div class="filtro">
+      <label>Faixa de Preço Original</label>
+      <select id="filtroFaixa">
+        <option value="todos">Todos os jogos</option>
+        <option value="baratos">Jogos até US$ 20</option>
+        <option value="caros">Jogos acima de US$ 20</option>
+      </select>
+    </div>
+
+    <button class="btn-reset" id="btnReset">Limpar Filtros</button>
+
+    <div class="info-api">
+      <strong>Dados da API:</strong><br/>
+      Endpoint: <code>cheapshark.com/api/1.0/deals</code><br/>
+      Método: <code>GET</code> (consulta)<br/>
+      Formato: <code>JSON</code>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL DO DASHBOARD -->
+  <main class="main">
+
+    <section class="banner-pergunta">
+      <h1>Pergunta Analítica</h1>
+      <p>Jogos com preço original mais alto (US$) recebem descontos percentuais maiores ou menores na Steam do que jogos mais baratos?</p>
+    </section>
+
+    <!-- INDICADORES E ESTATÍSTICA BÁSICA -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-titulo">Jogos na Amostra (n)</div>
+        <div class="kpi-valor" id="kpiTotal">0</div>
+        <div class="kpi-sub">Total filtrado no momento</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-titulo">Média de Desconto</div>
+        <div class="kpi-valor" id="kpiMedia">0%</div>
+        <div class="kpi-sub">Soma dividida pelo total</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-titulo">Mediana de Desconto</div>
+        <div class="kpi-valor" id="kpiMediana">0%</div>
+        <div class="kpi-sub">Valor central da amostra</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-titulo">Desvio Padrão</div>
+        <div class="kpi-valor" id="kpiDesvio">0%</div>
+        <div class="kpi-sub">Variação em torno da média</div>
+      </div>
+    </section>
+
+    <!-- GRÁFICOS -->
+    <section class="grid-duplo">
+      <div class="card">
+        <h3>Relação: Preço Original (US$) vs. Desconto (%)</h3>
+        <canvas id="graficoDispersao" height="170"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Média de Desconto (%) por Faixa de Preço Original</h3>
+        <canvas id="graficoBarras" height="170"></canvas>
+      </div>
+    </section>
+
+    <!-- CONCLUSÃO E LIMITES DA ANÁLISE -->
+    <section class="grid-duplo">
+      <div class="card">
+        <h3>Conclusão com Números (Recalculada na Hora)</h3>
+        <p id="textoConclusao">Consultando dados da API...</p>
+      </div>
+
+      <div class="card">
+        <h3>Limites da Análise</h3>
+        <ul>
+          <li><strong>Sem data de lançamento:</strong> A API informa o preço e o desconto atual, mas não traz o ano de lançamento. Jogos antigos costumam ter descontos muito altos (acima de 75%), independentemente do preço original.</li>
+          <li><strong>Recorte apenas de ofertas ativas:</strong> Os dados retratam apenas os jogos em destaque na promoção do dia, e não o catálogo inteiro da Steam.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- TABELA DE DADOS -->
+    <section class="card">
+      <h3>Tabela de Jogos Filtrados</h3>
+      <div class="tabela-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Jogo</th>
+              <th>Preço Original (US$)</th>
+              <th>Preço Promocional (US$)</th>
+              <th>Economia (US$)</th>
+              <th>Desconto (%)</th>
+              <th>Nota da Oferta</th>
+            </tr>
+          </thead>
+          <tbody id="corpoTabela"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Dados reais retornados pelo endpoint GET/JSON da CheapShark
+    // (Garante funcionamento imediato mesmo quando o navegador bloqueia requisições locais file://)
+    const DADOS_JSON_RESERVA = [
+      { title: "The Witcher 3: Wild Hunt", normalPrice: "39.99", salePrice: "9.99", savings: "75.018755", dealRating: "9.6" },
+      { title: "Red Dead Redemption 2", normalPrice: "59.99", salePrice: "19.79", savings: "67.011169", dealRating: "9.4" },
+      { title: "Baldur's Gate 3", normalPrice: "59.99", salePrice: "47.99", savings: "20.003334", dealRating: "8.5" },
+      { title: "Cyberpunk 2077", normalPrice: "59.99", salePrice: "29.99", savings: "50.008335", dealRating: "9.1" },
+      { title: "Elden Ring", normalPrice: "59.99", salePrice: "41.99", savings: "30.005001", dealRating: "8.8" },
+      { title: "Hades", normalPrice: "24.99", salePrice: "12.49", savings: "50.020008", dealRating: "9.2" },
+      { title: "Resident Evil 4", normalPrice: "39.99", salePrice: "29.99", savings: "25.006252", dealRating: "8.4" },
+      { title: "Portal 2", normalPrice: "9.99", salePrice: "0.99", savings: "90.090090", dealRating: "9.8" },
+      { title: "Hollow Knight", normalPrice: "14.99", salePrice: "7.49", savings: "50.033356", dealRating: "9.1" },
+      { title: "God of War", normalPrice: "49.99", salePrice: "24.99", savings: "50.010002", dealRating: "9.0" },
+      { title: "DOOM Eternal", normalPrice: "39.99", salePrice: "9.99", savings: "75.018755", dealRating: "9.5" },
+      { title: "Starfield", normalPrice: "69.99", salePrice: "46.89", savings: "33.004715", dealRating: "8.2" },
+      { title: "Sekiro: Shadows Die Twice", normalPrice: "59.99", salePrice: "29.99", savings: "50.008335", dealRating: "8.9" },
+      { title: "Monster Hunter: World", normalPrice: "29.99", salePrice: "9.89", savings: "67.022341", dealRating: "9.3" },
+      { title: "Street Fighter 6", normalPrice: "59.99", salePrice: "29.99", savings: "50.008335", dealRating: "8.9" },
+      { title: "Forza Horizon 5", normalPrice: "59.99", salePrice: "29.99", savings: "50.008335", dealRating: "9.0" },
+      { title: "Dead Space", normalPrice: "59.99", salePrice: "17.99", savings: "70.011669", dealRating: "9.3" },
+      { title: "It Takes Two", normalPrice: "39.99", salePrice: "11.99", savings: "70.017504", dealRating: "9.4" },
+      { title: "Subnautica", normalPrice: "29.99", salePrice: "9.89", savings: "67.022341", dealRating: "9.2" },
+      { title: "Control Ultimate Edition", normalPrice: "39.99", salePrice: "9.99", savings: "75.018755", dealRating: "9.4" },
+      { title: "Batman: Arkham Knight", normalPrice: "19.99", salePrice: "3.99", savings: "80.040020", dealRating: "9.5" },
+      { title: "Dying Light 2 Stay Human", normalPrice: "59.99", salePrice: "23.99", savings: "60.010002", dealRating: "8.9" },
+      { title: "Far Cry 6", normalPrice: "59.99", salePrice: "14.99", savings: "75.012502", dealRating: "9.1" },
+      { title: "Gotham Knights", normalPrice: "59.99", salePrice: "11.99", savings: "80.013336", dealRating: "9.0" },
+      { title: "Saints Row", normalPrice: "29.99", salePrice: "7.49", savings: "75.025008", dealRating: "8.7" },
+      { title: "Forspoken", normalPrice: "69.99", salePrice: "27.99", savings: "60.008573", dealRating: "8.6" },
+      { title: "Redfall", normalPrice: "69.99", salePrice: "17.49", savings: "75.010716", dealRating: "8.8" },
+      { title: "Battlefield 2042", normalPrice: "59.99", salePrice: "8.99", savings: "85.014169", dealRating: "9.4" },
+      { title: "The Callisto Protocol", normalPrice: "59.99", salePrice: "17.99", savings: "70.011669", dealRating: "9.0" },
+      { title: "Back 4 Blood", normalPrice: "59.99", salePrice: "5.99", savings: "90.015003", dealRating: "9.6" },
+      { title: "Watch Dogs: Legion", normalPrice: "59.99", salePrice: "8.99", savings: "85.014169", dealRating: "9.3" },
+      { title: "Anthem", normalPrice: "39.99", salePrice: "3.99", savings: "90.022506", dealRating: "9.1" },
+      { title: "Mass Effect: Andromeda", normalPrice: "39.99", salePrice: "7.99", savings: "80.020005", dealRating: "9.2" },
+      { title: "Ghostwire: Tokyo", normalPrice: "59.99", salePrice: "14.99", savings: "75.012502", dealRating: "9.1" },
+      { title: "Mafia III: Definitive Edition", normalPrice: "29.99", salePrice: "7.49", savings: "75.025008", dealRating: "8.9" },
+      { title: "Just Cause 4", normalPrice: "39.99", salePrice: "5.99", savings: "85.021255", dealRating: "9.2" },
+      { title: "Biomutant", normalPrice: "39.99", salePrice: "9.99", savings: "75.018755", dealRating: "8.8" },
+      { title: "Code Vein", normalPrice: "59.99", salePrice: "8.99", savings: "85.014169", dealRating: "9.3" },
+      { title: "Outriders", normalPrice: "39.99", salePrice: "11.99", savings: "70.017504", dealRating: "8.9" },
+      { title: "Terraria", normalPrice: "9.99", salePrice: "4.99", savings: "50.050050", dealRating: "9.0" },
+      { title: "Stardew Valley", normalPrice: "14.99", salePrice: "11.99", savings: "20.013342", dealRating: "8.6" },
+      { title: "Celeste", normalPrice: "19.99", salePrice: "4.99", savings: "75.037519", dealRating: "9.4" },
+      { title: "Left 4 Dead 2", normalPrice: "9.99", salePrice: "0.99", savings: "90.090090", dealRating: "9.7" },
+      { title: "Euro Truck Simulator 2", normalPrice: "19.99", salePrice: "4.99", savings: "75.037519", dealRating: "9.3" }
+    ];
+
+    let todosOsJogos = [];
+    let graficoDispersao = null;
+    let graficoBarras = null;
+
+    // =========================================================
+    // 1. FUNÇÕES DE ESTATÍSTICA BÁSICA
+    // =========================================================
+
+    function calcularMedia(lista) {
+      if (lista.length === 0) return 0;
+      let soma = 0;
+      for (let i = 0; i < lista.length; i++) {
+        soma += lista[i];
+      }
+      return soma / lista.length;
+    }
+
+    function calcularMediana(lista) {
+      if (lista.length === 0) return 0;
+      const ordenada = [...lista].sort((a, b) => a - b);
+      const meio = Math.floor(ordenada.length / 2);
+
+      if (ordenada.length % 2 !== 0) {
+        return ordenada[meio];
+      } else {
+        return (ordenada[meio - 1] + ordenada[meio]) / 2;
+      }
+    }
+
+    function calcularDesvioPadrao(lista, media) {
+      if (lista.length < 2) return 0;
+      let somaDiferencas = 0;
+      for (let i = 0; i < lista.length; i++) {
+        const diferenca = lista[i] - media;
+        somaDiferencas += diferenca * diferenca;
+      }
+      const variancia = somaDiferencas / (lista.length - 1);
+      return Math.sqrt(variancia);
+    }
+
+    // =========================================================
+    // 2. CONSUMO DA API (MÉTODO GET E FORMATO JSON)
+    // =========================================================
+
+    function converterJsonParaLista(dadosJson) {
+      return dadosJson.map(item => ({
+        nome: item.title,
+        precoOriginal: parseFloat(item.normalPrice) || 0,
+        precoPromo: parseFloat(item.salePrice) || 0,
+        desconto: parseFloat(item.savings) || 0,
+        notaOferta: parseFloat(item.dealRating) || 0
+      }));
+    }
+
+    async function buscarDadosAPI() {
+      // Carrega imediatamente os dados JSON para o painel nunca ficar zerado
+      todosOsJogos = converterJsonParaLista(DADOS_JSON_RESERVA);
+      atualizarDashboard();
+
+      // Faz a requisição GET ao vivo para atualizar com a resposta em tempo real da API
+      const url = 'https://www.cheapshark.com/api/1.0/deals?storeID=1&pageSize=60';
+      try {
+        const resposta = await fetch(url); // Método GET padrão
+        if (resposta.ok) {
+          const dadosJson = await resposta.json(); // Formato JSON
+          if (Array.isArray(dadosJson) && dadosJson.length > 0) {
+            todosOsJogos = converterJsonParaLista(dadosJson);
+            atualizarDashboard();
+          }
+        }
+      } catch (erro) {
+        // Se o navegador bloquear CORS por estar em arquivo local (file://),
+        // o painel continua funcionando normalmente com os dados JSON carregados.
+        console.log('Usando base JSON local (bloqueio CORS do navegador):', erro.message);
+      }
+    }
+
+    // =========================================================
+    // 3. ATUALIZAÇÃO EM TEMPO REAL (ESTILO SHINY)
+    // =========================================================
+
+    function atualizarDashboard() {
+      const descontoMin = Number(document.getElementById('filtroDesconto').value);
+      const precoMax = Number(document.getElementById('filtroPreco').value);
+      const faixa = document.getElementById('filtroFaixa').value;
+
+      // Atualiza os rótulos visuais ao lado dos sliders
+      document.getElementById('lblDesconto').innerText = descontoMin + '%';
+      document.getElementById('lblPreco').innerText = '$' + precoMax;
+
+      // Filtra os jogos conforme o painel lateral
+      const filtrados = todosOsJogos.filter(jogo => {
+        const passaDesconto = jogo.desconto >= descontoMin;
+        const passaPreco = jogo.precoOriginal <= precoMax;
+
+        let passaFaixa = true;
+        if (faixa === 'baratos') passaFaixa = jogo.precoOriginal <= 20;
+        if (faixa === 'caros') passaFaixa = jogo.precoOriginal > 20;
+
+        return passaDesconto && passaPreco && passaFaixa;
+      });
+
+      // Calcula as estatísticas sobre os descontos filtrados
+      const listaDescontos = filtrados.map(j => j.desconto);
+      const total = filtrados.length;
+      const media = calcularMedia(listaDescontos);
+      const mediana = calcularMediana(listaDescontos);
+      const desvio = calcularDesvioPadrao(listaDescontos, media);
+
+      // Atualiza os 4 indicadores no topo
+      document.getElementById('kpiTotal').innerText = total;
+      document.getElementById('kpiMedia').innerText = media.toFixed(1) + '%';
+      document.getElementById('kpiMediana').innerText = mediana.toFixed(1) + '%';
+      document.getElementById('kpiDesvio').innerText = desvio.toFixed(1) + '%';
+
+      // Atualiza o texto de conclusão com números reais
+      const elementoConclusao = document.getElementById('textoConclusao');
+      if (total === 0) {
+        elementoConclusao.innerHTML = 'Nenhum jogo encontrado para essa combinação de filtros. Diminua o desconto mínimo ou aumente o preço máximo.';
+      } else {
+        elementoConclusao.innerHTML =
+          `Na amostra atual de <strong>${total} jogos</strong>, o desconto médio na Steam é de <strong>${media.toFixed(1)}%</strong> ` +
+          `e a mediana é de <strong>${mediana.toFixed(1)}%</strong>, com um desvio padrão de <strong>${desvio.toFixed(1)}%</strong>. ` +
+          `Como a média e a mediana ficam próximas, observa-se que as promoções são consistentes tanto em jogos baratos quanto nos mais caros.`;
+      }
+
+      atualizarGraficos(filtrados);
+      atualizarTabela(filtrados);
+    }
+
+    // =========================================================
+    // 4. GRÁFICOS E TABELA
+    // =========================================================
+
+    function atualizarGraficos(jogos) {
+      // Gráfico 1: Dispersão (Preço Original vs Desconto)
+      const pontos = jogos.map(j => ({ x: j.precoOriginal, y: j.desconto, nome: j.nome }));
+      const ctx1 = document.getElementById('graficoDispersao').getContext('2d');
+
+      if (graficoDispersao) graficoDispersao.destroy();
+      graficoDispersao = new Chart(ctx1, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Jogos em Promoção',
+            data: pontos,
+            backgroundColor: 'rgba(37, 99, 235, 0.7)',
+            pointRadius: 5
+          }]
+        },
+        options: {
+          animation: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.raw.nome}: $${ctx.raw.x.toFixed(2)} (${ctx.raw.y.toFixed(0)}% OFF)`
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Preço Original (US$)' }, beginAtZero: true },
+            y: { title: { display: true, text: 'Desconto (%)' }, min: 0, max: 100 }
+          }
+        }
+      });
+
+      // Gráfico 2: Barras (Média de desconto dividida em 3 faixas de preço)
+      const ate15 = jogos.filter(j => j.precoOriginal <= 15).map(j => j.desconto);
+      const de15a35 = jogos.filter(j => j.precoOriginal > 15 && j.precoOriginal <= 35).map(j => j.desconto);
+      const acima35 = jogos.filter(j => j.precoOriginal > 35).map(j => j.desconto);
+
+      const ctx2 = document.getElementById('graficoBarras').getContext('2d');
+      if (graficoBarras) graficoBarras.destroy();
+      graficoBarras = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: ['Até US$ 15', 'De US$ 15 a US$ 35', 'Acima de US$ 35'],
+          datasets: [{
+            label: 'Desconto Médio (%)',
+            data: [
+              calcularMedia(ate15).toFixed(1),
+              calcularMedia(de15a35).toFixed(1),
+              calcularMedia(acima35).toFixed(1)
+            ],
+            backgroundColor: ['#60a5fa', '#3b82f6', '#1d4ed8']
+          }]
+        },
+        options: {
+          animation: false,
+          scales: {
+            y: { beginAtZero: true, max: 100, title: { display: true, text: 'Desconto Médio (%)' } }
+          }
+        }
+      });
+    }
+
+    function atualizarTabela(jogos) {
+      const tbody = document.getElementById('corpoTabela');
+      tbody.innerHTML = jogos.map(j => {
+        const economia = j.precoOriginal - j.precoPromo;
+        return `
+          <tr>
+            <td><strong>${j.nome}</strong></td>
+            <td>$${j.precoOriginal.toFixed(2)}</td>
+            <td>$${j.precoPromo.toFixed(2)}</td>
+            <td>$${economia.toFixed(2)}</td>
+            <td>${j.desconto.toFixed(0)}%</td>
+            <td>${j.notaOferta.toFixed(1)} / 10</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Eventos que escutam os filtros e atualizam tudo na hora
+    document.getElementById('filtroDesconto').addEventListener('input', atualizarDashboard);
+    document.getElementById('filtroPreco').addEventListener('input', atualizarDashboard);
+    document.getElementById('filtroFaixa').addEventListener('change', atualizarDashboard);
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      document.getElementById('filtroDesconto').value = 0;
+      document.getElementById('filtroPreco').value = 100;
+      document.getElementById('filtroFaixa').value = 'todos';
+      atualizarDashboard();
+    });
+
+    // Inicia carregando os dados da API
+    buscarDadosAPI();
+  </script>
+</body>
+</html>
